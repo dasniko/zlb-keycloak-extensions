@@ -2,6 +2,20 @@
 	"id": "test",
 	"realm": "test",
 	"enabled": true,
+	"eventsEnabled": true,
+	"smtpServer": {
+		"host": "mail",
+		"port": "1025",
+		"from": "keycloak@keycloak.test"
+	},
+	"clients": [ {
+		"clientId": "test-client",
+		"enabled": true,
+		"publicClient": true,
+		"standardFlowEnabled": true,
+		"directAccessGrantsEnabled": true,
+		"redirectUris": [ "http://localhost/callback" ]
+	} ],
 	"users" : [ {
 		"username" : "test",
 		"enabled" : true,
