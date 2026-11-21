@@ -2,6 +2,7 @@ package de.keycloak.provider;
 
 import org.keycloak.provider.ServerInfoAwareProviderFactory;
 
+import java.io.InputStream;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -23,8 +24,8 @@ public interface DefaultServerInfoAware extends ServerInfoAwareProviderFactory {
 		Class<?> clazz = this.getClass();
 		buildDetails.put("className", clazz.getCanonicalName());
 		java.util.Properties gitProperties = new java.util.Properties();
-		try {
-			gitProperties.load(Objects.requireNonNull(clazz.getClassLoader().getResourceAsStream("git.properties")));
+		try (InputStream in = Objects.requireNonNull(clazz.getClassLoader().getResourceAsStream("git.properties"))) {
+			gitProperties.load(in);
 			propertyNames.forEach(propertyName -> buildDetails.put(propertyName, gitProperties.getProperty(propertyName, "n/a")));
 		} catch (Exception e) {
 			buildDetails.put("build.time", ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT));
