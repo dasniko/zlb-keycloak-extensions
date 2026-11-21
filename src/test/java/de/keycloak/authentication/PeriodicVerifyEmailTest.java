@@ -3,6 +3,7 @@ package de.keycloak.authentication;
 import de.keycloak.authentication.requiredaction.PeriodicVerifyEmail;
 import de.keycloak.testsupport.Browser;
 import de.keycloak.testsupport.KeycloakEnvironment;
+import de.keycloak.testsupport.Mailpit;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import jakarta.ws.rs.WebApplicationException;
@@ -24,6 +25,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -151,6 +153,90 @@ class PeriodicVerifyEmailTest extends KeycloakEnvironment {
 		assertEquals(VERIFY_EMAIL, page.execution());
 		mailpit().awaitMessageText(user.email(), 1);
 		assertFalse(reload(user).isEmailVerified(), "the verified flag has to be reset");
+	}
+
+	// --- users who never verified their email ---
+
+	@Test
+	void unverifiedUserWithTheActionSetIsAskedToVerifyWithinThePeriod() {
+		// T-1: the action set explicitly (e.g. by an administrator) must not be completed without a verification
+		updateRequiredActionConfig(Map.of(PERIOD_AMOUNT, "1", PERIOD_UNIT, "DAYS"));
+		TestUser user = createUser(false, true, null);
+		UserRepresentation representation = reload(user);
+		representation.setRequiredActions(List.of(VERIFY_EMAIL));
+		realm().users().get(user.id()).update(representation);
+
+		Browser.Page page = newBrowser().login(user.username(), user.password());
+
+		assertFalse(page.isLoginCompleted());
+		assertEquals(VERIFY_EMAIL, page.execution());
+		mailpit().awaitMessageText(user.email(), 1);
+		assertFalse(reload(user).isEmailVerified());
+	}
+
+	@Test
+	void unverifiedUserIsAskedToVerifyWithinThePeriodWhenRealmRequiresIt() {
+		// T-2: the first verification required by the realm applies in the periodic mode as well
+		updateRequiredActionConfig(Map.of(PERIOD_AMOUNT, "1", PERIOD_UNIT, "DAYS"));
+		RealmRepresentation realm = realm().toRepresentation();
+		realm.setVerifyEmail(true);
+		realm().update(realm);
+		try {
+			TestUser user = createUser(false, true, null);
+
+			Browser.Page page = newBrowser().login(user.username(), user.password());
+
+			assertFalse(page.isLoginCompleted());
+			assertEquals(VERIFY_EMAIL, page.execution());
+			mailpit().awaitMessageText(user.email(), 1);
+		} finally {
+			realm.setVerifyEmail(false);
+			realm().update(realm);
+		}
+	}
+
+	@Test
+	void unverifiedUserIsNotAskedToVerifyWithinThePeriodWhenRealmDoesNotRequireIt() {
+		// control for the test above: as with upstream, the realm setting decides on the first verification
+		updateRequiredActionConfig(Map.of(PERIOD_AMOUNT, "1", PERIOD_UNIT, "DAYS"));
+		TestUser user = createUser(false, true, null);
+
+		assertTrue(newBrowser().login(user.username(), user.password()).isLoginCompleted());
+		assertFalse(reload(user).isEmailVerified());
+	}
+
+	@Test
+	void registrationCannotBeCompletedWhenTheOwnerOfTheEmailVerifiesItInAnotherBrowser() {
+		// T-3: pre-account takeover, someone registers with the email of another person, who then verifies it in an own browser
+		updateRequiredActionConfig(Map.of(PERIOD_AMOUNT, "1", PERIOD_UNIT, "DAYS"));
+		RealmRepresentation realm = realm().toRepresentation();
+		realm.setRegistrationAllowed(true);
+		realm.setVerifyEmail(true);
+		realm().update(realm);
+		try {
+			String name = "registrant-" + UUID.randomUUID();
+			String victimEmail = name + "@keycloak.test";
+			Browser registrant = newBrowser();
+			Browser.Page registered = registrant.register(name, victimEmail, "secret");
+			assertEquals(VERIFY_EMAIL, registered.execution(), "the registration has to ask for the verification, but ended at " + registered.uri());
+
+			String link = Mailpit.actionTokenLink(mailpit().awaitMessageText(victimEmail, 1));
+			Browser victim = newBrowser();
+			Browser.Page confirmation = victim.get(link);
+			Browser.Page verified = victim.get(confirmation.linkContaining("action-token"));
+			assertEquals(200, verified.status());
+			assertTrue(realm().users().searchByEmail(victimEmail, true).getFirst().isEmailVerified());
+
+			// the registrant continues; without protection the flow would ask for the password of the new account and complete the login
+			Browser.Page continued = registrant.setPasswordIfAsked(registrant.get(registered.uri().toString()), "secret");
+
+			assertFalse(continued.isLoginCompleted(), "the session of the registrant must not be completed, but ended at " + continued.uri());
+			assertFalse("UPDATE_PASSWORD".equals(continued.execution()), "the session of the registrant must not continue with further actions");
+		} finally {
+			realm.setRegistrationAllowed(false);
+			realm.setVerifyEmail(false);
+			realm().update(realm);
+		}
 	}
 
 	@Test

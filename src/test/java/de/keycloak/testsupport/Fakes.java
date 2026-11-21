@@ -1,13 +1,18 @@
 package de.keycloak.testsupport;
 
+import io.opentelemetry.api.trace.Span;
 import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.component.ComponentModel;
+import org.keycloak.events.EventBuilder;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.LDAPConstants;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionConfigModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.storage.ReadOnlyException;
+import org.keycloak.tracing.TracingProvider;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -89,14 +94,32 @@ public final class Fakes {
 
 	/**
 	 * A context with the given realm, user and configuration of the required action.
+	 * <p>
+	 * Its event builder is a real {@link EventBuilder}, which sends the events to nowhere (no event store, no listeners, no tracing).
 	 */
 	public static RequiredActionContext context(RealmModel realm, UserModel user, Map<String, String> config) {
 		RequiredActionConfigModel configModel = new RequiredActionConfigModel();
 		configModel.setConfig(config);
+		EventBuilder event = new EventBuilder(realm, session());
 		return proxy(RequiredActionContext.class, (method, args) -> switch (method.getName()) {
 			case "getRealm" -> realm;
 			case "getUser" -> user;
 			case "getConfig" -> configModel;
+			case "getEvent" -> event;
+			default -> defaultValue(method.getReturnType());
+		});
+	}
+
+	/**
+	 * A session, which offers no providers except a tracing provider without recording.
+	 */
+	private static KeycloakSession session() {
+		TracingProvider tracing = proxy(TracingProvider.class, (method, args) ->
+			method.getName().equals("getCurrentSpan") ? Span.getInvalid() : defaultValue(method.getReturnType()));
+		KeycloakSessionFactory sessionFactory = proxy(KeycloakSessionFactory.class, (method, args) -> defaultValue(method.getReturnType()));
+		return proxy(KeycloakSession.class, (method, args) -> switch (method.getName()) {
+			case "getProvider" -> args.length == 1 && args[0] == TracingProvider.class ? tracing : null;
+			case "getKeycloakSessionFactory" -> sessionFactory;
 			default -> defaultValue(method.getReturnType());
 		});
 	}
@@ -115,6 +138,9 @@ public final class Fakes {
 		}
 		if (type == long.class) {
 			return 0L;
+		}
+		if (type == Stream.class) {
+			return Stream.empty();
 		}
 		return null;
 	}

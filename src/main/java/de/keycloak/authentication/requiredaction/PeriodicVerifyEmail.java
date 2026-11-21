@@ -10,7 +10,6 @@ import org.keycloak.authentication.RequiredActionFactory;
 import org.keycloak.authentication.requiredactions.VerifyEmail;
 import org.keycloak.events.Details;
 import org.keycloak.events.EventType;
-import org.keycloak.models.Constants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionConfigModel;
@@ -70,16 +69,17 @@ public class PeriodicVerifyEmail extends VerifyEmail implements DefaultServerInf
 		source = "org.keycloak.authentication.requiredactions.VerifyEmail#evaluateTriggers(RequiredActionContext)",
 		version = "26.8.2",
 		modified = true,
-		changes = "Periodic mode: trigger is the age of the last verification instead of realm.isVerifyEmail() and !emailVerified, "
+		changes = "Periodic mode for verified users: trigger is the age of the last verification instead of realm.isVerifyEmail() and !emailVerified, "
 			+ "transient users are skipped, emailVerified is reset (with an event) when the action is added. "
 			+ "The skip rules for blank emails and a pending UPDATE_EMAIL are taken over unchanged. "
-			+ "If periodic verification is switched off, the upstream implementation is called.",
-		reason = "Upstream requires realm.isVerifyEmail(), which must not be a precondition for the periodic verification."
+			+ "For unverified users, and if the periodic verification is switched off, the upstream implementation is called.",
+		reason = "Upstream requires realm.isVerifyEmail(), which must not be a precondition for the periodic verification of verified users."
 	)
 	public void evaluateTriggers(RequiredActionContext context) {
 		Optional<Period> period = getPeriod(context);
-		if (period.isPresent()) {
-			UserModel user = context.getUser();
+		UserModel user = context.getUser();
+		// The first verification of an unverified user is decided by upstream, i.e. by the realm setting "Verify email".
+		if (period.isPresent() && user.isEmailVerified()) {
 			if (user instanceof LightweightUserAdapter) {
 				// if user is a transient/lightweight user, don't enforce verification by email
 				return;
@@ -112,53 +112,38 @@ public class PeriodicVerifyEmail extends VerifyEmail implements DefaultServerInf
 
 	@Override
 	public void requiredActionChallenge(RequiredActionContext context) {
-		if (shouldDelegateToUpstream(context)) {
-			super.requiredActionChallenge(context);
-		}
+		resetIfPeriodicVerificationIsDue(context);
+		super.requiredActionChallenge(context);
 	}
 
 	@Override
 	public void processAction(RequiredActionContext context) {
-		if (shouldDelegateToUpstream(context)) {
-			super.processAction(context);
-		}
+		resetIfPeriodicVerificationIsDue(context);
+		super.processAction(context);
 	}
 
 	/**
-	 * The upstream implementation decides on {@link UserModel#isEmailVerified()} only, so the periodic check is done beforehand.
+	 * Prepares the request for the upstream implementation, which always handles it afterwards.
 	 * <p>
-	 * Has side effects: if the periodic verification is not due, the action is completed here; if it is due,
-	 * the verified flag of the user is reset, so that the upstream implementation requests the verification.
-	 *
-	 * @return {@code true}, if the upstream implementation has to handle the request (periodic verification switched off or due).
-	 * {@code false}, if the periodic verification is enabled and the last verification is still within the period,
-	 * so the action is already completed.
+	 * Upstream decides on {@link UserModel#isEmailVerified()} only: it completes the action for a verified user
+	 * (unless the user registered in this authentication session, but verified the email in another one) and requests
+	 * the verification from an unverified user.
+	 * The action may be started without {@link #evaluateTriggers(RequiredActionContext)} having been called
+	 * (e.g. application initiated action in a long-running session), so if the periodic verification of a verified user
+	 * is due, the verified flag is reset here the same way as there, so that upstream requests the verification.
 	 */
-	private boolean shouldDelegateToUpstream(RequiredActionContext context) {
+	private void resetIfPeriodicVerificationIsDue(RequiredActionContext context) {
 		Optional<Period> period = getPeriod(context);
-		if (period.isEmpty()) {
-			return true;
-		}
-
 		UserModel user = context.getUser();
-		if (isWithinPeriod(user, period.get())) {
-			context.success();
-			context.getAuthenticationSession().removeAuthNote(Constants.VERIFY_EMAIL_KEY);
-			return false;
+		if (period.isEmpty() || !user.isEmailVerified() || isWithinPeriod(user, period.get()) || Validation.isBlank(user.getEmail())) {
+			return;
 		}
-
-		// The verification is due, but the action may be started without evaluateTriggers() having been called
-		// (e.g. application initiated action in a long-running session). Upstream would complete the action at once
-		// for a verified user, so reset the flag the same way as evaluateTriggers() does.
-		if (!Validation.isBlank(user.getEmail())) {
-			try {
-				resetEmailVerified(context, user);
-			} catch (ReadOnlyException e) {
-				// the message of the exception contains the username, so it is not logged
-				log.warnf("Cannot reset the verified flag, as the user storage is read-only (user id %s)", user.getId());
-			}
+		try {
+			resetEmailVerified(context, user);
+		} catch (ReadOnlyException e) {
+			// the message of the exception contains the username, so it is not logged
+			log.warnf("Cannot reset the verified flag, as the user storage is read-only (user id %s)", user.getId());
 		}
-		return true;
 	}
 
 	/**

@@ -13,6 +13,13 @@ To configure the duration how often a user has to re-verify the email, see here:
 
 ![](img/periodic-verify-email.gif)
 
+The periodic verification applies to users whose email address is verified, independent of the realm setting _Verify email_.
+
+Users whose email address is not verified (e.g. newly registered users, or users whose address has been changed) are handled like by the built-in action:
+whether they have to verify their address is decided by the realm setting _Verify email_ (_Realm settings_ → _Login_).
+If this setting is off, these users are not asked for a first verification, even if the periodic verification is switched on.
+A `VERIFY_EMAIL` action set explicitly for a user (e.g. by an administrator) is completed only by verifying the email address.
+
 ### Extended Verify Email Action Token Handler
 
 The `ExtendedVerifyEmailActionTokenHandler` extends and automatically overloads the built-in action token handler.

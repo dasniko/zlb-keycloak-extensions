@@ -37,18 +37,16 @@ class PeriodicVerifyEmailReadOnlyTest {
 		// control for the test above: the same user of a writable storage is asked to verify
 		FakeUser user = overdueUser();
 		user.federationLink = STORAGE_ID;
-		user.emailVerified = false; // the reset of the flag fires an event, which needs a running Keycloak
 
 		requiredAction.evaluateTriggers(Fakes.context(Fakes.realmWithUserStorage(STORAGE_ID, "WRITABLE"), user.model(), ONE_DAY));
 
-		assertEquals(List.of("addRequiredAction"), user.writes);
+		assertEquals(List.of("addRequiredAction", "setEmailVerified"), user.writes);
 	}
 
 	@Test
 	void readOnlyExceptionOfTheUserModelDoesNotBreakTheTrigger() {
 		// e.g. a user storage without import, which is not detected by its edit mode
 		FakeUser user = overdueUser();
-		user.emailVerified = false;
 		user.readOnly = true;
 		RequiredActionContext context = Fakes.context(Fakes.realmWithUserStorage(STORAGE_ID, "WRITABLE"), user.model(), ONE_DAY);
 

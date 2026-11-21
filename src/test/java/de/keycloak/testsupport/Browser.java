@@ -105,6 +105,45 @@ public class Browser {
 		return post(loginPage.formAction(), Map.of("username", username, "password", password));
 	}
 
+	/**
+	 * Starts the authorization code flow of the test client, opens the registration form and submits it.
+	 * The registration has to be allowed in the realm.
+	 * <p>
+	 * The registration form does not ask for a password, Keycloak asks for it afterwards by the required action
+	 * {@code UPDATE_PASSWORD}, which is completed here, if it is the next action (see {@link #setPasswordIfAsked(Page, String)}).
+	 *
+	 * @return the page the flow ends at: either the redirect URI (login completed) or the page of a required action.
+	 */
+	public Page register(String username, String email, String password) {
+		Page loginPage = get(authorizationUrl);
+		String registrationLink = loginPage.linkContaining("login-actions/registration");
+		if (registrationLink == null) {
+			throw new IllegalStateException("Registration link expected on the login page at " + loginPage.uri());
+		}
+		Page registrationPage = get(loginPage.uri().resolve(registrationLink).toString());
+		if (registrationPage.status() != 200 || registrationPage.formAction() == null) {
+			throw new IllegalStateException("Registration page expected, but got status " + registrationPage.status() + " at " + registrationPage.uri());
+		}
+		Page registered = post(registrationPage.formAction(), Map.of(
+			"username", username,
+			"email", email,
+			"firstName", "Theo",
+			"lastName", "Tester"));
+		return setPasswordIfAsked(registered, password);
+	}
+
+	/**
+	 * Submits the password, if the page is the one of the required action {@code UPDATE_PASSWORD}.
+	 *
+	 * @return the page after submitting the password, or the given page, if it does not ask for a password.
+	 */
+	public Page setPasswordIfAsked(Page page, String password) {
+		if (!"UPDATE_PASSWORD".equals(page.execution())) {
+			return page;
+		}
+		return post(page.formAction(), Map.of("password-new", password, "password-confirm", password));
+	}
+
 	private HttpRequest.Builder request(URI uri) {
 		HttpRequest.Builder builder = HttpRequest.newBuilder(uri);
 		if (!cookies.isEmpty()) {
