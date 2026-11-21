@@ -240,6 +240,25 @@ class PeriodicVerifyEmailTest extends KeycloakEnvironment {
 	}
 
 	@Test
+	void invalidTimestampMakesTheVerificationDueAndIsReplacedByTheVerification() {
+		// e.g. an administrator entered a date instead of epoch milliseconds
+		updateRequiredActionConfig(Map.of(PERIOD_AMOUNT, "1", PERIOD_UNIT, "DAYS"));
+		TestUser user = createUser(true, true, null);
+		UserRepresentation representation = reload(user);
+		representation.setAttributes(Map.of(EMAIL_VERIFIED_AT, List.of("2026-01-01")));
+		realm().users().get(user.id()).update(representation);
+		Browser browser = newBrowser();
+
+		Browser.Page page = browser.login(user.username(), user.password());
+
+		assertEquals(VERIFY_EMAIL, page.execution(), "the login must ask for the verification, but ended at " + page.uri());
+		Browser.Page verified = browser.get(Mailpit.actionTokenLink(mailpit().awaitMessageText(user.email(), 1)));
+		assertTrue(verified.isLoginCompleted(), "login has to be completed, but ended at " + verified.uri());
+		long timestamp = Long.parseLong(reload(user).getAttributes().get(EMAIL_VERIFIED_AT).getFirst());
+		assertTrue(timestamp > System.currentTimeMillis() - Duration.ofMinutes(1).toMillis(), "a valid timestamp has to be stored by the verification");
+	}
+
+	@Test
 	void userWithoutEmailIsNeverAskedToVerify() {
 		updateRequiredActionConfig(Map.of(PERIOD_AMOUNT, "1", PERIOD_UNIT, "DAYS"));
 		TestUser user = createUser(true, false, ago(Duration.ofDays(2)));

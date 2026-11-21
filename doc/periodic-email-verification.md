@@ -31,6 +31,9 @@ It adds setting the `emailVerifiedAt` attribute to the current timestamp when th
 ## User Profile Configuration
 
 The time of the last verification is stored in the user attribute `emailVerifiedAt` (epoch milliseconds), which decides when the next verification is due.
+If the attribute is not set, the time of the creation of the user is used instead.
+If the value is not a number (e.g. a date entered by an administrator), or neither the attribute nor the time of the creation is known,
+the verification is due; the verification stores a valid value again. An invalid value is logged as a warning.
 Make sure that users cannot change this attribute themselves, otherwise they could postpone the verification.
 
 Declare the attribute in the user profile of the realm (_Realm settings_ → _User profile_ → _JSON editor_), so that only administrators can view and edit it,

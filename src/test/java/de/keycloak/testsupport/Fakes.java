@@ -44,6 +44,7 @@ public final class Fakes {
 		public boolean emailVerified = true;
 		public Long emailVerifiedAt;
 		public boolean enabled = true;
+		public Long createdTimestamp = System.currentTimeMillis();
 		/** further attributes of the user */
 		public final Map<String, String> attributes = new HashMap<>();
 		/** the required actions of the user */
@@ -69,7 +70,7 @@ public final class Fakes {
 					case "isEmailVerified":
 						return emailVerified;
 					case "getCreatedTimestamp":
-						return System.currentTimeMillis();
+						return createdTimestamp;
 					case "isEnabled":
 						return enabled;
 					case "getFirstAttribute":

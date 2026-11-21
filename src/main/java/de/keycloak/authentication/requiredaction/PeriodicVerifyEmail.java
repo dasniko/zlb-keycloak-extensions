@@ -288,15 +288,42 @@ public class PeriodicVerifyEmail extends VerifyEmail implements DefaultServerInf
 		}
 	}
 
+	/**
+	 * @return {@code true}, if the last verification is within the period. {@code false}, if the verification is due,
+	 * which includes an unknown time of the last verification
+	 */
 	private boolean isWithinPeriod(UserModel user, Period period) {
-		String emailVerifiedAtTimestamp = user.getFirstAttribute(EMAIL_VERIFIED_AT);
-		Long timestamp;
-		if (emailVerifiedAtTimestamp != null && !emailVerifiedAtTimestamp.isEmpty()) {
-			timestamp = Long.parseLong(emailVerifiedAtTimestamp);
-		} else {
-			timestamp = user.getCreatedTimestamp();
+		Long timestamp = lastVerification(user);
+		if (timestamp == null) {
+			return false;
 		}
-		Instant verifiedAt = Instant.ofEpochMilli(timestamp);
-		return !verifiedAt.isBefore(period.start());
+		return !Instant.ofEpochMilli(timestamp).isBefore(period.start());
+	}
+
+	/**
+	 * The time of the last verification is the attribute {@value #EMAIL_VERIFIED_AT}, or the creation of the user, if the email
+	 * has never been verified through this extension.
+	 * <p>
+	 * A value that is not a number (e.g. a date entered by an administrator) must not break the login. The time is unknown then,
+	 * so the verification is due; it stores a valid value again.
+	 *
+	 * @return the time of the last verification (epoch milliseconds), or {@code null}, if it is unknown
+	 */
+	private static Long lastVerification(UserModel user) {
+		String value = user.getFirstAttribute(EMAIL_VERIFIED_AT);
+		if (value != null && !value.isEmpty()) {
+			try {
+				return Long.parseLong(value);
+			} catch (NumberFormatException e) {
+				log.warnf("The attribute %s of user %s is not a number (epoch milliseconds), the periodic verification is due",
+					EMAIL_VERIFIED_AT, user.getId());
+				return null;
+			}
+		}
+		Long created = user.getCreatedTimestamp();
+		if (created == null) {
+			log.debugf("The time of creation of user %s is unknown, the periodic verification is due", user.getId());
+		}
+		return created;
 	}
 }
