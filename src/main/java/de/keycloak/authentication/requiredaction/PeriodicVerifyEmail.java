@@ -68,7 +68,7 @@ public class PeriodicVerifyEmail extends VerifyEmail implements DefaultServerInf
 	@CopiedFromKeycloak(
 		artifact = "keycloak-services",
 		source = "org.keycloak.authentication.requiredactions.VerifyEmail#evaluateTriggers(RequiredActionContext)",
-		version = "26.8.0",
+		version = "26.8.2",
 		modified = true,
 		changes = "Periodic mode: trigger is the age of the last verification instead of realm.isVerifyEmail() and !emailVerified, "
 			+ "transient users are skipped, emailVerified is reset (with an event) when the action is added. "

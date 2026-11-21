@@ -27,7 +27,7 @@ public class ExtendedVerifyEmailActionTokenHandler extends VerifyEmailActionToke
 	@CopiedFromKeycloak(
 		artifact = "keycloak-services",
 		source = "org.keycloak.authentication.actiontoken.verifyemail.VerifyEmailActionTokenHandler#handleToken(VerifyEmailActionToken, ActionTokenContext)",
-		version = "26.8.0",
+		version = "26.8.2",
 		modified = true,
 		changes = "Only the conditions under which upstream verifies the email are mirrored (not already verified, no confirmation page), "
 			+ "to set the verification timestamp. The handling itself is delegated to upstream.",
@@ -67,7 +67,7 @@ public class ExtendedVerifyEmailActionTokenHandler extends VerifyEmailActionToke
 	@CopiedFromKeycloak(
 		artifact = "keycloak-services",
 		source = "org.keycloak.authentication.actiontoken.verifyemail.VerifyEmailActionTokenHandler#isVerifyEmailActionSet(UserModel, AuthenticationSessionModel)",
-		version = "26.8.0",
+		version = "26.8.2",
 		reason = "Private in upstream, but needed to mirror the conditions in handleToken()."
 	)
 	private boolean isVerifyEmailActionSet(UserModel user, AuthenticationSessionModel authSession) {
