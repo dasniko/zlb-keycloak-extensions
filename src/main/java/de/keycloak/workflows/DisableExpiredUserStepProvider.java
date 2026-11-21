@@ -6,6 +6,7 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.workflow.WorkflowExecutionContext;
 import org.keycloak.models.workflow.WorkflowStepProvider;
+import org.keycloak.storage.ReadOnlyException;
 
 import java.time.DateTimeException;
 import java.time.Instant;
@@ -65,7 +66,12 @@ public class DisableExpiredUserStepProvider implements WorkflowStepProvider {
 
 		if (expiry.isBefore(Instant.now())) {
 			log.debugf("Disabling user %s, attribute '%s' is in the past", user.getId(), attributeName);
-			user.setEnabled(false);
+			try {
+				user.setEnabled(false);
+			} catch (ReadOnlyException e) {
+				// e.g. a user of an LDAP storage without import; the message of the exception contains the username, so it is not logged
+				log.warnf("Cannot disable user %s, as the user storage is read-only", user.getId());
+			}
 		}
 	}
 

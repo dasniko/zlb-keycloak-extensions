@@ -19,7 +19,8 @@ The step leaves the user untouched, if
 
 - the user is already disabled,
 - the attribute is not set or empty,
-- the value is not an ISO-8601 date or date-time (logged as a warning).
+- the value is not an ISO-8601 date or date-time (logged as a warning),
+- the user storage of the user is read-only, e.g. an LDAP federation without import (logged as a warning).
 
 If the setting `attribute` is missing, the step does nothing and logs a warning.
 

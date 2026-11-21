@@ -136,6 +136,18 @@ class DisableExpiredUserStepProviderTest {
 		assertTrue(user.writes.isEmpty());
 	}
 
+	@Test
+	void readOnlyUserStorageDoesNotBreakTheStep() {
+		// e.g. a user of an LDAP storage without import, which rejects all writes
+		FakeUser user = userWithExpiry(Instant.now().minus(1, ChronoUnit.MINUTES).toString());
+		user.readOnly = true;
+
+		run(user, ATTRIBUTE);
+
+		assertTrue(user.enabled);
+		assertTrue(user.writes.isEmpty());
+	}
+
 	@ParameterizedTest
 	@ValueSource(strings = {"", "  "})
 	void stepWithoutTheAttributeSettingDoesNothing(String attribute) {
