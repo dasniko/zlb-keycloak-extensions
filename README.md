@@ -43,6 +43,30 @@ The images `quay.io/keycloak/keycloak:<keycloak.version from pom.xml>` and `axll
 
 The Keycloak and Mailpit containers are started for each test class, so a test run takes some time.
 
+## Updating Keycloak
+
+The extensions are built and tested against the Keycloak version set by the property `keycloak.version` in the `pom.xml`.
+It defines the version of the Keycloak dependencies (`keycloak-spi-bom`), of the Keycloak image used by the tests,
+and of the upstream code the copied code is compared with.
+
+Some parts of the code mirror logic of Keycloak and are marked with the `@CopiedFromKeycloak` annotation.
+The `copied-code-maven-plugin` compares them with the code of the Keycloak version in use.
+
+To update to a new Keycloak version:
+
+1. Set `keycloak.version` in the `pom.xml` to the new version.
+2. Run the build including the tests and the check of the copied code:
+
+       $ ./mvnw clean verify
+
+3. Check the result of the copied code check in the build output (`Copied code: {...}`):
+   - `UNCHANGED`: the upstream code is unchanged, nothing to do.
+   - `CHANGED`: the upstream code has changed, and the build fails.
+     The log shows the diff of the upstream code, it is also stored in `target/copied-code/`.
+     Review whether the local code has to follow the change, adapt it if necessary,
+     and set `version` of the `@CopiedFromKeycloak` annotation to the new Keycloak version.
+4. For a new minor or major version, also update the Keycloak badge in this README and the image in `docker-compose.yml`.
+
 ## Local Development with Docker Compose
 
 The `docker-compose.yml` starts Keycloak (with the test realm imported) and a Mailpit instance (UI: http://localhost:8025).
