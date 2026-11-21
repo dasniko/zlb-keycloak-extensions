@@ -19,8 +19,10 @@ import org.keycloak.tracing.TracingProvider;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -44,8 +46,12 @@ public final class Fakes {
 		public boolean enabled = true;
 		/** further attributes of the user */
 		public final Map<String, String> attributes = new HashMap<>();
+		/** the required actions of the user */
+		public final List<String> requiredActions = new ArrayList<>();
 		/** if set, all write calls fail like with a read-only user storage */
 		public boolean readOnly;
+		/** the names of the write methods, which fail like with a read-only user storage, e.g. "setEmailVerified" */
+		public final Set<String> readOnlyMethods = new HashSet<>();
 		/** the names of the write methods, which have been called successfully */
 		public final List<String> writes = new ArrayList<>();
 
@@ -72,14 +78,24 @@ public final class Fakes {
 						}
 						return attributes.get((String) args[0]);
 					case "getRequiredActionsStream":
-						return Stream.empty();
-					case "addRequiredAction", "setEmailVerified", "setSingleAttribute", "setEnabled":
-						if (readOnly) {
+						return requiredActions.stream();
+					case "addRequiredAction", "removeRequiredAction", "setEmailVerified", "setSingleAttribute", "setEnabled":
+						if (readOnly || readOnlyMethods.contains(method.getName())) {
 							throw new ReadOnlyException("The user is read-only. Not possible to write '" + method.getName() + "' when updating user '" + USERNAME + "'.");
 						}
 						writes.add(method.getName());
-						if (method.getName().equals("setEnabled")) {
-							enabled = (boolean) args[0];
+						switch (method.getName()) {
+							case "setEnabled" -> enabled = (boolean) args[0];
+							case "setEmailVerified" -> emailVerified = (boolean) args[0];
+							case "addRequiredAction" -> {
+								// like Keycloak, the required actions of a user are a set
+								if (!requiredActions.contains(args[0].toString())) {
+									requiredActions.add(args[0].toString());
+								}
+							}
+							case "removeRequiredAction" -> requiredActions.remove(args[0].toString());
+							default -> {
+							}
 						}
 						return null;
 					default:

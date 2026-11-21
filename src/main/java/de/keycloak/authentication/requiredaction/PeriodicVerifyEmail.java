@@ -70,7 +70,8 @@ public class PeriodicVerifyEmail extends VerifyEmail implements DefaultServerInf
 		version = "26.8.2",
 		modified = true,
 		changes = "Periodic mode for verified users: trigger is the age of the last verification instead of realm.isVerifyEmail() and !emailVerified, "
-			+ "transient users are skipped, emailVerified is reset (with an event) when the action is added. "
+			+ "transient users are skipped, emailVerified is reset (with an event) when the action is added, "
+			+ "a read-only user storage is caught (an action added without the reset is removed again). "
 			+ "The skip rules for blank emails and a pending UPDATE_EMAIL are taken over unchanged. "
 			+ "For unverified users, and if the periodic verification is switched off, the upstream implementation is called.",
 		reason = "Upstream requires realm.isVerifyEmail(), which must not be a precondition for the periodic verification of verified users."
@@ -96,10 +97,18 @@ public class PeriodicVerifyEmail extends VerifyEmail implements DefaultServerInf
 				log.debug("Skipping VERIFY_EMAIL because UPDATE_EMAIL is already present");
 				return;
 			}
+			boolean actionSetBefore = user.getRequiredActionsStream().anyMatch(UserModel.RequiredAction.VERIFY_EMAIL.name()::equals);
+			boolean actionAdded = false;
 			try {
 				user.addRequiredAction(UserModel.RequiredAction.VERIFY_EMAIL);
+				actionAdded = true;
 				resetEmailVerified(context, user);
 			} catch (ReadOnlyException e) {
+				// Without the reset of the flag, upstream would complete the action at once, so it must not stay set.
+				// An action set before (e.g. by an administrator) is kept.
+				if (actionAdded && !actionSetBefore) {
+					removeAddedAction(user);
+				}
 				// the message of the exception contains the username, so it is not logged
 				log.warnf("Skipping the periodic verification, as the user storage is read-only (user id %s)", user.getId());
 				return;
@@ -107,6 +116,14 @@ public class PeriodicVerifyEmail extends VerifyEmail implements DefaultServerInf
 			log.debug("User is required to verify email upon periodic check.");
 		} else {
 			super.evaluateTriggers(context);
+		}
+	}
+
+	private static void removeAddedAction(UserModel user) {
+		try {
+			user.removeRequiredAction(UserModel.RequiredAction.VERIFY_EMAIL);
+		} catch (ReadOnlyException e) {
+			log.warnf("Cannot remove the required action VERIFY_EMAIL again, as the user storage is read-only (user id %s)", user.getId());
 		}
 	}
 

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -53,6 +54,33 @@ class PeriodicVerifyEmailReadOnlyTest {
 		requiredAction.evaluateTriggers(context);
 
 		assertTrue(user.writes.isEmpty());
+	}
+
+	@Test
+	void failingResetOfTheVerifiedFlagRemovesTheAddedAction() {
+		// e.g. a user storage, which keeps the required actions locally, but rejects to change the verified flag
+		FakeUser user = overdueUser();
+		user.readOnlyMethods.add("setEmailVerified");
+		RequiredActionContext context = Fakes.context(Fakes.realmWithUserStorage(STORAGE_ID, "WRITABLE"), user.model(), ONE_DAY);
+
+		requiredAction.evaluateTriggers(context);
+
+		assertTrue(user.requiredActions.isEmpty(), "the action must not stay set without the reset of the flag, but: " + user.requiredActions);
+		assertTrue(user.emailVerified);
+	}
+
+	@Test
+	void failingResetOfTheVerifiedFlagKeepsAnActionSetBefore() {
+		// an action set before (e.g. by an administrator) must not be removed
+		FakeUser user = overdueUser();
+		user.requiredActions.add("VERIFY_EMAIL");
+		user.readOnlyMethods.add("setEmailVerified");
+		RequiredActionContext context = Fakes.context(Fakes.realmWithUserStorage(STORAGE_ID, "WRITABLE"), user.model(), ONE_DAY);
+
+		requiredAction.evaluateTriggers(context);
+
+		assertEquals(List.of("VERIFY_EMAIL"), user.requiredActions);
+		assertFalse(user.writes.contains("removeRequiredAction"));
 	}
 
 	private static FakeUser overdueUser() {
