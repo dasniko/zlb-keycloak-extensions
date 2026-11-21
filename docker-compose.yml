@@ -1,6 +1,6 @@
 services:
   keycloak:
-    container_name: pev_kc
+    container_name: zlb_kc
     image: quay.io/keycloak/keycloak:26.8
     command: start-dev --import-realm
     environment:
@@ -19,11 +19,11 @@ services:
       - ./target/providers:/opt/keycloak/providers
   mail:
     # UI: http://localhost:8025
-    container_name: pev_mail
+    container_name: zlb_mail
     image: axllent/mailpit:latest
     ports:
       - "8025:8025"
 
 volumes:
   kc_data:
-    name: pev-kc-data
+    name: zlb-kc-data

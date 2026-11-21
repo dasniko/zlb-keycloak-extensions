@@ -1,13 +1,20 @@
-# Keycloak Periodic Email Verification
+# ZLB Keycloak Extensions
 
-## General
+Custom [Keycloak](https://www.keycloak.org) extensions for the ZLB (Stiftung Zentral- und Landesbibliothek Berlin).
 
-These custom extensions are based on
 ![](https://img.shields.io/badge/Keycloak-26.8-blue)
 ![](https://img.shields.io/badge/Java-21-f89820)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE.md)
 
-### Building the Binaries
+## Extensions
+
+| Extension | Description |
+|---|---|
+| [Periodic Email Verification](doc/periodic-email-verification.md) | Makes users re-verify their email address periodically |
+
+All extensions are built into one provider JAR.
+
+## Building the Binaries
 
 You can build the binaries if you have a local installation of JDK, with
 
@@ -17,16 +24,16 @@ If you don't have local JDK installation, but Docker is available, you can use t
 
     $ ./build-with-docker.sh
 
-Both approaches will build the binary `target/periodic-email-verification-<version>.jar`
+Both approaches will build the binary `target/zlb-keycloak-extensions-<version>.jar`
 and additionally copy it to the directory `target/providers/`.
 
 `./mvnw clean package` also runs the tests, which require a running Docker environment (see [Running the Tests](#running-the-tests)).
 Without Docker, skip them with `./mvnw clean package -DskipTests`.
 The helper script `build-with-docker.sh` builds with `-DskipTests`.
 
-### Running the Tests
+## Running the Tests
 
-The integration tests are based on [Testcontainers](https://testcontainers.com/) and run the extension in a real Keycloak container.
+The integration tests are based on [Testcontainers](https://testcontainers.com/) and run the extensions in a real Keycloak container.
 A Mailpit container catches the emails sent by Keycloak.
 
 **Prerequisite:** a running Docker environment, which is accessible for the user running Maven.
@@ -36,7 +43,7 @@ The images `quay.io/keycloak/keycloak:<keycloak.version from pom.xml>` and `axll
 
 The Keycloak and Mailpit containers are started for each test class, so a test run takes some time.
 
-### Local Development with Docker Compose
+## Local Development with Docker Compose
 
 The `docker-compose.yml` starts Keycloak (with the test realm imported) and a Mailpit instance (UI: http://localhost:8025).
 The directory `target/providers/` is mounted into the Keycloak container as `/opt/keycloak/providers`,
@@ -49,17 +56,17 @@ which is the same as `mvn clean package -DskipTests && docker compose up`.
 Keycloak loads providers on startup only, so restart the container after each rebuild.
 Note that `mvn clean` removes `target/providers/`, so rebuild while the container is stopped.
 
-### Download the Binaries
+## Download the Binaries
 
 Alternatively to building the binaries yourself, you can also download them from GitHub actions.
 
-Go to [Actions](https://github.com/dasniko/keycloak-periodic-email-verification/actions/workflows/maven.yml) and click on the most recent workflow run.
+Go to [Actions](https://github.com/dasniko/zlb-keycloak-extensions/actions/workflows/maven.yml) and click on the most recent workflow run.
 
 In the details of this execution, you can find the section `Artifacts` with the artifact named `<repository-name>-<short-commit-sha>` listed.
-It contains the provider JAR (`periodic-email-verification-<version>.jar`).
+It contains the provider JAR (`zlb-keycloak-extensions-<version>.jar`).
 Here you can download the artifact up until 90 days after the last build time.
 
-### Deployment
+## Deployment
 
 Deploy the built JAR file into the `$KEYCLOAK_HOME/providers` folder of your Keycloak server (or copy it to your Docker image).
 
@@ -67,74 +74,8 @@ When running Keycloak in `optimized` mode, you'll have to run a `build` after de
 If you start Keycloak regularly, an implicit build will be performed.
 See [Keycloak Docs](https://www.keycloak.org/docs) and [Keycloak Guides](https://www.keycloak.org/guides) for more info.
 
-### User Profile Configuration
-
-The time of the last verification is stored in the user attribute `emailVerifiedAt` (epoch milliseconds), which decides when the next verification is due.
-Make sure that users cannot change this attribute themselves, otherwise they could postpone the verification.
-
-Declare the attribute in the user profile of the realm (_Realm settings_ → _User profile_ → _JSON editor_), so that only administrators can view and edit it,
-by adding this entry to the `attributes` array:
-
-```json
-{
-  "name": "emailVerifiedAt",
-  "permissions": {
-    "view": ["admin"],
-    "edit": ["admin"]
-  }
-}
-```
-
-Do not set the _Unmanaged Attributes_ setting of the realm to _Enabled_ (e.g. as a result of a migration from a Keycloak version before 24),
-as this allows users to edit all attributes that are not declared in the user profile, including `emailVerifiedAt`.
-The extension writes the attribute directly on the user, so it works with a declared as well as with an undeclared attribute.
-
-## Extensions
-
-### Periodic Verify Email Action
-
-The `PeriodicVerifyEmail` action extends and automatically overloads the built-in required action `VERIFY_EMAIL`.
-
-It tests periodically if a user has to re-verify its email address.
-To configure the duration how often a user has to re-verify the email, see here:
-
-![](doc/periodic-verify-email.gif)
-
-### Extended Verify Email Action Token Handler
-
-The `ExtendedVerifyEmailActionTokenHandler` extends and automatically overloads the built-in action token handler.
-
-It adds setting the `emailVerifiedAt` attribute to the current timestamp when the user confirms/verifies its email via the action token link.
-
-## Limitations
-
-The periodic verification is evaluated only when a user authenticates, i.e. as part of the login.
-Existing sessions, as well as refresh and offline tokens, are not checked again by Keycloak.
-A user with a long-living session or token can therefore stay signed in beyond the configured verification period, without being asked to verify the email address.
-
-Choose the session lifetimes (e.g. SSO session max, offline session settings) to match the configured verification period.
-
-The periodic verification is suspended for users of a read-only user storage, i.e. a user federation (e.g. LDAP) with the edit mode `READ_ONLY`.
-Keycloak rejects writing the `emailVerifiedAt` attribute for such users, so the time of the last verification cannot be stored.
-For these users the behavior of the built-in `VERIFY_EMAIL` action applies.
+Check the documentation of each extension for the configuration it needs.
 
 ## License
 
-Copyright 2025-2026 Niko Köbler
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-The full license text is available in [LICENSE.md](LICENSE.md).
-
-Small parts of the code mirror logic of [Keycloak](https://github.com/keycloak/keycloak), which is licensed under the Apache License, Version 2.0 as well.
-Such places are marked with the `@CopiedFromKeycloak` annotation.
+Licensed under the [Apache License 2.0](LICENSE.md); parts of the code marked with `@CopiedFromKeycloak` mirror logic of [Keycloak](https://github.com/keycloak/keycloak), which is licensed under the same license.

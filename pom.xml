@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>de.keycloak</groupId>
-	<artifactId>periodic-email-verification</artifactId>
+	<artifactId>zlb-keycloak-extensions</artifactId>
 	<version>999.0.0-SNAPSHOT</version>
 
 	<properties>
