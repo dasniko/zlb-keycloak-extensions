@@ -18,7 +18,9 @@ The periodic verification applies to users whose email address is verified, inde
 Users whose email address is not verified (e.g. newly registered users, or users whose address has been changed) are handled like by the built-in action:
 whether they have to verify their address is decided by the realm setting _Verify email_ (_Realm settings_ → _Login_).
 If this setting is off, these users are not asked for a first verification, even if the periodic verification is switched on.
-A `VERIFY_EMAIL` action set explicitly for a user (e.g. by an administrator) is completed only by verifying the email address.
+A `VERIFY_EMAIL` action set explicitly (e.g. by an administrator) for a user whose email address is not verified is completed only by verifying the address.
+For a user whose email address is verified, and whose last verification is within the period, the action is completed without a new verification, like by the built-in action.
+To enforce a new verification for such a user, reset _Email verified_ of the user as well.
 
 ### Extended Verify Email Action Token Handler
 
