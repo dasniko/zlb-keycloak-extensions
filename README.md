@@ -11,6 +11,7 @@ Custom [Keycloak](https://www.keycloak.org) extensions for the ZLB (Stiftung Zen
 | Extension | Description |
 |---|---|
 | [Periodic Email Verification](doc/periodic-email-verification.md) | Makes users re-verify their email address periodically |
+| [Workflow Steps](doc/workflow-steps.md) | Custom steps for Keycloak workflows, e.g. disabling users whose account has expired |
 
 All extensions are built into one provider JAR.
 

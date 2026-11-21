@@ -53,6 +53,8 @@ public abstract class KeycloakEnvironment {
 	private static final KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:" + Version.VERSION)
 		.withNetwork(network)
 		.withDefaultProviderClasses()
+		// run the workflow steps within the request activating the workflow, so that the tests can check the result right afterwards
+		.withEnv("KC_SPI_WORKFLOW__DEFAULT__EXECUTOR_BLOCKING", "true")
 		.withRealmImportFile("test-realm.json");
 
 	@Container

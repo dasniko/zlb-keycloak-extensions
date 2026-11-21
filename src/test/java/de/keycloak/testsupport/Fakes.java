@@ -5,17 +5,20 @@ import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.events.EventBuilder;
+import org.keycloak.models.KeycloakContext;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.LDAPConstants;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionConfigModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.UserProvider;
 import org.keycloak.storage.ReadOnlyException;
 import org.keycloak.tracing.TracingProvider;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -38,6 +41,9 @@ public final class Fakes {
 		public String email = "user@keycloak.test";
 		public boolean emailVerified = true;
 		public Long emailVerifiedAt;
+		public boolean enabled = true;
+		/** further attributes of the user */
+		public final Map<String, String> attributes = new HashMap<>();
 		/** if set, all write calls fail like with a read-only user storage */
 		public boolean readOnly;
 		/** the names of the write methods, which have been called successfully */
@@ -58,15 +64,23 @@ public final class Fakes {
 						return emailVerified;
 					case "getCreatedTimestamp":
 						return System.currentTimeMillis();
+					case "isEnabled":
+						return enabled;
 					case "getFirstAttribute":
-						return "emailVerifiedAt".equals(args[0]) && emailVerifiedAt != null ? String.valueOf(emailVerifiedAt) : null;
+						if ("emailVerifiedAt".equals(args[0]) && emailVerifiedAt != null) {
+							return String.valueOf(emailVerifiedAt);
+						}
+						return attributes.get((String) args[0]);
 					case "getRequiredActionsStream":
 						return Stream.empty();
-					case "addRequiredAction", "setEmailVerified", "setSingleAttribute":
+					case "addRequiredAction", "setEmailVerified", "setSingleAttribute", "setEnabled":
 						if (readOnly) {
 							throw new ReadOnlyException("The user is read-only. Not possible to write '" + method.getName() + "' when updating user '" + USERNAME + "'.");
 						}
 						writes.add(method.getName());
+						if (method.getName().equals("setEnabled")) {
+							enabled = (boolean) args[0];
+						}
 						return null;
 					default:
 						return defaultValue(method.getReturnType());
@@ -106,6 +120,25 @@ public final class Fakes {
 			case "getUser" -> user;
 			case "getConfig" -> configModel;
 			case "getEvent" -> event;
+			default -> defaultValue(method.getReturnType());
+		});
+	}
+
+	/**
+	 * A session with the given realm as the realm of its context, whose user provider knows the given user only.
+	 */
+	public static KeycloakSession sessionWithUser(RealmModel realm, UserModel user) {
+		UserProvider users = proxy(UserProvider.class, (method, args) -> {
+			if (method.getName().equals("getUserById") && args[0] == realm && user.getId().equals(args[1])) {
+				return user;
+			}
+			return defaultValue(method.getReturnType());
+		});
+		KeycloakContext context = proxy(KeycloakContext.class, (method, args) ->
+			method.getName().equals("getRealm") ? realm : defaultValue(method.getReturnType()));
+		return proxy(KeycloakSession.class, (method, args) -> switch (method.getName()) {
+			case "users" -> users;
+			case "getContext" -> context;
 			default -> defaultValue(method.getReturnType());
 		});
 	}
