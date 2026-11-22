@@ -83,13 +83,14 @@ Note that `mvn clean` removes `target/providers/`, so rebuild while the containe
 
 ## Download the Binaries
 
-Alternatively to building the binaries yourself, you can also download them from GitHub actions.
+Alternatively to building the binaries yourself, you can download the provider JAR (`zlb-keycloak-extensions-<version>.jar`)
+from the [Releases](https://github.com/dasniko/zlb-keycloak-extensions/releases).
 
-Go to [Actions](https://github.com/dasniko/zlb-keycloak-extensions/actions/workflows/maven.yml) and click on the most recent workflow run.
+### Keycloak Compatibility
 
-In the details of this execution, you can find the section `Artifacts` with the artifact named `<repository-name>-<short-commit-sha>` listed.
-It contains the provider JAR (`zlb-keycloak-extensions-<version>.jar`).
-Here you can download the artifact up until 90 days after the last build time.
+The release notes of each release state the Keycloak minor version the release is compatible with,
+e.g. _Compatible with Keycloak 26.8.x_, and the exact Keycloak version it was built and tested against.
+Releases with a suffix in the version, e.g. `v1.0.0-RC1`, are marked as pre-releases.
 
 ## Deployment
 

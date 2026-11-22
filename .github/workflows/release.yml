@@ -32,12 +32,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          KEYCLOAK_VERSION="$(sed -n 's:.*<keycloak.version>\(.*\)</keycloak.version>.*:\1:p' pom.xml)"
+          if [[ -z "$KEYCLOAK_VERSION" ]]; then
+            echo "::error::keycloak.version not found in pom.xml"
+            exit 1
+          fi
+          KEYCLOAK_MINOR="$(echo "$KEYCLOAK_VERSION" | cut -d. -f1,2)"
           PRERELEASE=""
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             PRERELEASE="--prerelease"
           fi
           gh release create "$GITHUB_REF_NAME" target/providers/*.jar \
             --title "$GITHUB_REF_NAME" \
+            --notes "**Compatible with Keycloak ${KEYCLOAK_MINOR}.x** (built and tested against Keycloak ${KEYCLOAK_VERSION})" \
             --generate-notes \
             --verify-tag \
             $PRERELEASE
