@@ -2,6 +2,8 @@
 
 Custom [Keycloak](https://www.keycloak.org) extensions for the ZLB (Stiftung Zentral- und Landesbibliothek Berlin).
 
+[![CI build](https://github.com/dasniko/zlb-keycloak-extensions/actions/workflows/maven.yml/badge.svg?branch=main)](https://github.com/dasniko/zlb-keycloak-extensions/actions/workflows/maven.yml)
+[![Release](https://img.shields.io/github/v/release/dasniko/zlb-keycloak-extensions?include_prereleases&sort=semver)](https://github.com/dasniko/zlb-keycloak-extensions/releases)
 ![](https://img.shields.io/badge/Keycloak-26.8-blue)
 ![](https://img.shields.io/badge/Java-21-f89820)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE.md)
